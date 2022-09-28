@@ -1,0 +1,43 @@
+commit 767467f8c1a0f37640fc76488ad7caa992899e20
+Author: vamsi-amazon <reddyvam@amazon.com>
+Date:   Thu Aug 25 22:57:15 2022 -0700
+
+    Added tenancy access to user info in security thread context
+
+diff --git a/src/main/java/com/amazon/opendistroforelasticsearch/security/privileges/PrivilegesEvaluator.java b/src/main/java/com/amazon/opendistroforelasticsearch/security/privileges/PrivilegesEvaluator.java
+index af022cd1..8d96a4e7 100644
+--- a/src/main/java/com/amazon/opendistroforelasticsearch/security/privileges/PrivilegesEvaluator.java
++++ b/src/main/java/com/amazon/opendistroforelasticsearch/security/privileges/PrivilegesEvaluator.java
+@@ -176,13 +176,29 @@ public class PrivilegesEvaluator {
+             joiner.add(String.join(",", user.getRoles()));
+             joiner.add(String.join(",", Sets.union(user.getOpenDistroSecurityRoles(), mappedRoles)));
+             String requestedTenant = user.getRequestedTenant();
+-            if (!Strings.isNullOrEmpty(requestedTenant)) {
+-                joiner.add(requestedTenant);
+-            }
++            joiner.add(requestedTenant);
++            String tenantAccessToCheck = getTenancyAccess(requestedTenant, mapTenants(user, mappedRoles));
++            joiner.add(tenantAccessToCheck);
++            log.debug(joiner);
+             threadContext.putTransient(OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT, joiner.toString());
+         }
+     }
+ 
++    private String getTenancyAccess(String requestedTenant, Map<String, Boolean> tenancyAccessMap) {
++        final String tenant = Strings.isNullOrEmpty(requestedTenant) ? "global_tenant" : requestedTenant;
++        if(tenant.equals("__user__")) {
++            return "WRITE";
++        }
++        else{
++            if(tenancyAccessMap == null || !tenancyAccessMap.containsKey(tenant)) {
++                return "NO";
++            }
++            else {
++                return tenancyAccessMap.get(tenant) ? "WRITE" : "READ";
++            }
++        }
++    }
++
+     public PrivilegesEvaluatorResponse evaluate(final User user, String action0, final ActionRequest request,
+                                                 Task task, final Set<String> injectedRoles) {
+ 

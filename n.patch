@@ -1,0 +1,57 @@
+commit f4a772bd1070297993b81bef65d1e8f1d9eadb04
+Author: vamsi-amazon <reddyvam@amazon.com>
+Date:   Tue Aug 30 21:04:09 2022 -0700
+
+    Add tenancy access info in thread context
+    
+    Signed-off-by: vamsi-amazon <reddyvam@amazon.com>
+
+diff --git a/src/main/java/org/opensearch/security/privileges/PrivilegesEvaluator.java b/src/main/java/org/opensearch/security/privileges/PrivilegesEvaluator.java
+index fd1b26d3..c5652eef 100644
+--- a/src/main/java/org/opensearch/security/privileges/PrivilegesEvaluator.java
++++ b/src/main/java/org/opensearch/security/privileges/PrivilegesEvaluator.java
+@@ -104,6 +104,11 @@ import static org.opensearch.security.support.ConfigConstants.OPENDISTRO_SECURIT
+ public class PrivilegesEvaluator {
+ 
+     private static final WildcardMatcher ACTION_MATCHER = WildcardMatcher.from("indices:data/read/*search*");
++    private static final String USER_TENANT = "__user__";
++    private static final String GLOBAL_TENANT = "global_tenant";
++    private static final String READ_ACCESS = "READ";
++    private static final String WRITE_ACCESS = "WRITE";
++    private static final String NO_ACCESS = "NONE";
+ 
+     private static final Pattern DNFOF_PATTERNS = Pattern.compile(
+             "indices:(data/read/.*|(admin/(mappings/fields/get.*|shards/search_shards|resolve/index)))"
+@@ -188,13 +193,29 @@ public class PrivilegesEvaluator {
+             joiner.add(String.join(",", user.getRoles()));
+             joiner.add(String.join(",", Sets.union(user.getSecurityRoles(), mappedRoles)));
+             String requestedTenant = user.getRequestedTenant();
+-            if (!Strings.isNullOrEmpty(requestedTenant)) {
+-                joiner.add(requestedTenant);
+-            }
++            joiner.add(requestedTenant);
++            String tenantAccessToCheck = getTenancyAccess(requestedTenant, mapTenants(user, mappedRoles));
++            joiner.add(tenantAccessToCheck);
++            log.debug(joiner);
+             threadContext.putTransient(OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT, joiner.toString());
+         }
+     }
+ 
++    private String getTenancyAccess(String requestedTenant, Map<String, Boolean> tenancyAccessMap) {
++        final String tenant = Strings.isNullOrEmpty(requestedTenant) ? GLOBAL_TENANT : requestedTenant;
++        if(tenant.equals(USER_TENANT)) {
++            return WRITE_ACCESS;
++        }
++        else{
++            if(tenancyAccessMap == null || !tenancyAccessMap.containsKey(tenant)) {
++                return NO_ACCESS;
++            }
++            else {
++                return tenancyAccessMap.get(tenant) ? WRITE_ACCESS : READ_ACCESS;
++            }
++        }
++    }
++
+     public PrivilegesEvaluatorResponse evaluate(final User user, String action0, final ActionRequest request,
+                                                 Task task, final Set<String> injectedRoles) {
+ 

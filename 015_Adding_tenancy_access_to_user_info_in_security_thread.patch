@@ -1,0 +1,52 @@
+From b5674c9261edd67177fb8a94e0bf4390552a74ed Mon Sep 17 00:00:00 2001
+From: vamsi-amazon <reddyvam@amazon.com>
+Date: Mon, 22 Aug 2022 03:47:57 -0700
+Subject: [PATCH] Adding tenancy access to user info in security thread context
+
+Signed-off-by: vamsi-amazon <reddyvam@amazon.com>
+---
+ .../privileges/PrivilegesEvaluator.java       | 24 ++++++++++++++++---
+ 1 file changed, 21 insertions(+), 3 deletions(-)
+
+diff --git a/src/main/java/org/opensearch/security/privileges/PrivilegesEvaluator.java b/src/main/java/org/opensearch/security/privileges/PrivilegesEvaluator.java
+index fd1b26d3..f0510923 100644
+--- a/src/main/java/org/opensearch/security/privileges/PrivilegesEvaluator.java
++++ b/src/main/java/org/opensearch/security/privileges/PrivilegesEvaluator.java
+@@ -188,13 +188,31 @@ public class PrivilegesEvaluator {
+             joiner.add(String.join(",", user.getRoles()));
+             joiner.add(String.join(",", Sets.union(user.getSecurityRoles(), mappedRoles)));
+             String requestedTenant = user.getRequestedTenant();
+-            if (!Strings.isNullOrEmpty(requestedTenant)) {
+-                joiner.add(requestedTenant);
+-            }
++            joiner.add(requestedTenant);
++            String tenantAccessToCheck = getTenancyAccess(requestedTenant, mapTenants(user, mappedRoles));
++            joiner.add(tenantAccessToCheck);
++            log.info(joiner);
+             threadContext.putTransient(OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT, joiner.toString());
+         }
+     }
+ 
++    private String getTenancyAccess(String requestedTenant, Map<String, Boolean> tenancyAccessMap) {
++        if(Strings.isNullOrEmpty(requestedTenant)) {
++            requestedTenant = "global_tenant";
++        }
++        if(requestedTenant.equals("__user__")) {
++            return "WRITE";
++        }
++        else{
++            if(!tenancyAccessMap.containsKey(requestedTenant)) {
++                return "NO";
++            }
++            else {
++                return tenancyAccessMap.get(requestedTenant) ? "WRITE" : "READ";
++            }
++        }
++    }
++
+     public PrivilegesEvaluatorResponse evaluate(final User user, String action0, final ActionRequest request,
+                                                 Task task, final Set<String> injectedRoles) {
+ 
+-- 
+2.35.1
+

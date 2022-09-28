@@ -1,0 +1,45 @@
+commit 780544b79cc32aedbe958bcb22f024d0b9726c5d
+Author: vamsi-amazon <reddyvam@amazon.com>
+Date:   Tue Aug 30 21:04:09 2022 -0700
+
+    Add tenancy access info in thread context
+    
+    Signed-off-by: vamsi-amazon <reddyvam@amazon.com>
+
+diff --git a/src/main/java/org/opensearch/security/privileges/PrivilegesEvaluator.java b/src/main/java/org/opensearch/security/privileges/PrivilegesEvaluator.java
+index fd1b26d3..5fce650e 100644
+--- a/src/main/java/org/opensearch/security/privileges/PrivilegesEvaluator.java
++++ b/src/main/java/org/opensearch/security/privileges/PrivilegesEvaluator.java
+@@ -188,13 +188,29 @@ public class PrivilegesEvaluator {
+             joiner.add(String.join(",", user.getRoles()));
+             joiner.add(String.join(",", Sets.union(user.getSecurityRoles(), mappedRoles)));
+             String requestedTenant = user.getRequestedTenant();
+-            if (!Strings.isNullOrEmpty(requestedTenant)) {
+-                joiner.add(requestedTenant);
+-            }
++            joiner.add(requestedTenant);
++            String tenantAccessToCheck = getTenancyAccess(requestedTenant, mapTenants(user, mappedRoles));
++            joiner.add(tenantAccessToCheck);
++            log.debug(joiner);
+             threadContext.putTransient(OPENDISTRO_SECURITY_USER_INFO_THREAD_CONTEXT, joiner.toString());
+         }
+     }
+ 
++    private String getTenancyAccess(String requestedTenant, Map<String, Boolean> tenancyAccessMap) {
++        final String tenant = Strings.isNullOrEmpty(requestedTenant) ? "global_tenant" : requestedTenant;
++        if(tenant.equals("__user__")) {
++            return "WRITE";
++        }
++        else{
++            if(tenancyAccessMap == null || !tenancyAccessMap.containsKey(tenant)) {
++                return "NO";
++            }
++            else {
++                return tenancyAccessMap.get(tenant) ? "WRITE" : "READ";
++            }
++        }
++    }
++
+     public PrivilegesEvaluatorResponse evaluate(final User user, String action0, final ActionRequest request,
+                                                 Task task, final Set<String> injectedRoles) {
+ 
