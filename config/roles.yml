@@ -136,6 +136,20 @@ observability_full_access:
     - 'cluster:admin/opensearch/observability/delete'
     - 'cluster:admin/opensearch/observability/get'
 
+# Allows users to all datasource activity
+datasource_metadata_management_full_access:
+  reserved: true
+  cluster_permissions:
+    - 'cluster:admin/opensearch/datasources/create'
+    - 'cluster:admin/opensearch/datasources/read'
+    - 'cluster:admin/opensearch/datasources/update'
+    - 'cluster:admin/opensearch/datasources/delete'
+
+datasource_metadata_management_read_access:
+  reserved: true
+  cluster_permissions:
+    - 'cluster:admin/opensearch/datasources/read' 
+      
 # Allows users to read and download Reports
 reports_instances_read_access:
   reserved: true
